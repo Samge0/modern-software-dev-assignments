@@ -66,3 +66,26 @@ def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
     return NoteRead.model_validate(note)
 
 
+@router.delete("/{note_id}", status_code=204)
+def delete_note(note_id: int, db: Session = Depends(get_db)) -> None:
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    db.delete(note)
+    db.flush()
+
+
+@router.get("/{note_id}/stats")
+def note_stats(note_id: int, db: Session = Depends(get_db)) -> dict:
+    """Quick content statistics for a note (chars/words/lines)."""
+    note = db.get(Note, note_id)
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    words = len(note.content.split())
+    lines = note.content.count("\n") + 1 if note.content else 0
+    return {
+        "id": note.id,
+        "chars": len(note.content),
+        "words": words,
+        "lines": lines,
+    }
