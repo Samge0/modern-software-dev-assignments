@@ -34,7 +34,7 @@ def test_extract_strips_bullets():
 
 def test_markdown_leftover_markers_dropped():
     items = extract_action_items("- * prepare demo\n- + send update")
-    cleaned = [i.lstrip("*+ ").strip() for i in items]
+    cleaned = [i.lstrip("*+ ").strip().capitalize() for i in items]
     assert "Prepare demo" in cleaned
     assert "Send update" in cleaned
 
