@@ -114,3 +114,13 @@ def mark_action_item_done(action_item_id: int, done: bool) -> None:
         connection.commit()
 
 
+def get_action_item(action_item_id: int) -> Optional[sqlite3.Row]:
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT id, note_id, text, done, created_at FROM action_items WHERE id = ?",
+            (action_item_id,),
+        )
+        return cursor.fetchone()
+
+
