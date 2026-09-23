@@ -2,14 +2,25 @@ import os
 import re
 from collections import Counter
 from dotenv import load_dotenv
-from ollama import chat
+# Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
+from backend_shim import chat
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
-# TODO: Fill this in! Try to get as close to 100% correctness across all runs as possible.
-YOUR_SYSTEM_PROMPT = ""
+# Self-consistency: the harness already samples 5 runs @ temperature=1 and majority-votes.
+# The system prompt's job is to make each independent reasoning chain maximally likely
+# to reach the correct intermediate computation (60 - 20 - 15 = 25) and stay on-format,
+# so the majority vote lands on "Answer: 25".
+YOUR_SYSTEM_PROMPT = (
+    "You are a precise arithmetic word-problem solver. Solve independently and carefully.\n"
+    "Steps: (1) identify the total distance, (2) identify each stop's position in miles, "
+    "(3) compute the distance between stop 1 and stop 2 by subtraction, "
+    "(4) sanity-check the result is positive and less than the total.\n"
+    "End with a final line exactly: Answer: <number>\n"
+    "The final line must contain ONLY 'Answer: ' and the integer. Double-check your subtraction."
+)
 
 USER_PROMPT = """
 Solve this problem, then give the final answer on the last line as "Answer: <number>".

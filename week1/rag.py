@@ -2,7 +2,8 @@ import os
 import re
 from typing import List, Callable
 from dotenv import load_dotenv
-from ollama import chat
+# Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
+from backend_shim import chat
 
 load_dotenv()
 
@@ -36,8 +37,17 @@ QUESTION = (
 )
 
 
-# TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+# RAG system prompt: the context block already carries the retrieved API docs.
+# The prompt pins the model to ground every code decision in that context only.
+YOUR_SYSTEM_PROMPT = (
+    "You are a code generation assistant that writes strictly from the provided context. "
+    "Rules:\n"
+    "1. Read the 'Context' section: it is the ONLY authoritative API reference.\n"
+    "2. Use the exact Base URL and endpoint path from the context.\n"
+    "3. Use the exact authentication header name from the context (X-API-Key) with the api_key argument.\n"
+    "4. Build the request with requests.get, call raise_for_status(), then return only the 'name' field.\n"
+    "5. Output a single fenced python code block containing imports and the function. No prose."
+)
 
 
 # For this simple example
@@ -52,11 +62,25 @@ REQUIRED_SNIPPETS = [
 
 
 def YOUR_CONTEXT_PROVIDER(corpus: List[str]) -> List[str]:
-    """TODO: Select and return the relevant subset of documents from CORPUS for this task.
+    """Select and return the relevant subset of documents from CORPUS for this task.
 
-    For example, return [] to simulate missing context, or [corpus[0]] to include the API docs.
+    Naive lexical retrieval: score each document by overlap with the task's key
+    entities (user, api, endpoint, authentication). The api_docs.txt entry wins
+    and is returned as the retrieved context; irrelevant documents are dropped.
+    An empty return would simulate "no retrieval" (ablation) and fail the checks.
     """
-    return []
+    query_terms = {"user", "users", "api", "key", "endpoint", "authentication", "fetch"}
+    scored: List[tuple] = []
+    for doc in corpus:
+        if not doc or doc.startswith("[") :  # skip error/missing placeholders
+            continue
+        tokens = set(re.findall(r"[a-zA-Z]+", doc.lower()))
+        score = len(tokens & query_terms)
+        scored.append((score, doc))
+    if not scored:
+        return []
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [scored[0][1]]
 
 
 def make_user_prompt(question: str, context_docs: List[str]) -> str:

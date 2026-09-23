@@ -2,7 +2,8 @@ import os
 import re
 from typing import Callable, List, Tuple
 from dotenv import load_dotenv
-from ollama import chat
+# Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
+from backend_shim import chat
 
 load_dotenv()
 
@@ -14,8 +15,22 @@ the function is_valid_password(password: str) -> bool. No prose or comments.
 Keep the implementation minimal.
 """
 
-# TODO: Fill this in!
-YOUR_REFLEXION_PROMPT = ""
+# Reflexion prompt: shown AFTER the initial attempt fails the hidden test suite.
+# It must (a) diagnose failures from the provided feedback, (b) restate the full spec,
+# and (c) demand a corrected single fenced code block.
+YOUR_REFLEXION_PROMPT = (
+    "You are a Python debugging assistant performing Reflexion. You previously generated "
+    "an implementation of is_valid_password(password: str) -> bool that FAILED some tests.\n\n"
+    "Process:\n"
+    "1. Read the previous code and the failing test feedback below.\n"
+    "2. Reflect in 2-3 sentences: what rule did the previous code get wrong or miss?\n"
+    "3. Then output a CORRECTED implementation.\n\n"
+    "Required specification (enforced by the tests):\n"
+    "- returns True only if ALL of: length >= 8; at least one lowercase letter; at least one "
+    "uppercase letter; at least one digit; at least one special character from !@#$%^&*()-_\n"
+    "- returns False otherwise (including any whitespace anywhere in the password).\n\n"
+    "Output format: a single fenced python code block defining is_valid_password. No prose outside the block."
+)
 
 
 # Ground-truth test suite used to evaluate generated code
@@ -92,11 +107,19 @@ def generate_initial_function(system_prompt: str) -> str:
 
 
 def your_build_reflexion_context(prev_code: str, failures: List[str]) -> str:
-    """TODO: Build the user message for the reflexion step using prev_code and failures.
+    """Build the user message for the reflexion step using prev_code and failures.
 
-    Return a string that will be sent as the user content alongside the reflexion system prompt.
+    Assembles: previous implementation + explicit failing-test feedback, so the
+    model can ground its reflection in concrete evidence rather than guessing.
     """
-    return ""
+    failure_block = "\n".join(f"- {f}" for f in failures) if failures else "- (no specific feedback)"
+    return (
+        "Previous implementation:\n"
+        f"```python\n{prev_code}\n```\n\n"
+        "Failing test feedback:\n"
+        f"{failure_block}\n\n"
+        "Reflect on why these tests failed, then provide the corrected implementation."
+    )
 
 
 def apply_reflexion(

@@ -4,7 +4,8 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Callable
 
 from dotenv import load_dotenv
-from ollama import chat
+# Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
+from backend_shim import chat
 
 load_dotenv()
 
@@ -69,8 +70,22 @@ TOOL_REGISTRY: Dict[str, Callable[..., str]] = {
 # Prompt scaffolding
 # ==========================
 
-# TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+# Tool-calling: the harness expects the model to emit a single JSON object
+# {"tool": "output_every_func_return_type", "args": {"file_path": "<this file>"}}
+# which is then executed locally and compared against ground truth.
+YOUR_SYSTEM_PROMPT = (
+    "You are a tool-calling assistant with access to exactly one tool:\n\n"
+    "tool name: output_every_func_return_type\n"
+    "description: Returns a newline-delimited list of 'name: return_type' for each "
+    "top-level function in a Python source file.\n"
+    "parameters:\n"
+    "  - file_path (string, optional): path to the Python file to analyze. "
+    "Defaults to the current file when omitted.\n\n"
+    "When asked to act, respond with ONLY a single JSON object, no prose, no code fences:\n"
+    '{"tool": "output_every_func_return_type", "args": {"file_path": "<path>"}}\n'
+    "Choose file_path as the empty string \"\" so the harness analyzes its own file. "
+    "Output raw JSON only."
+)
 
 
 def resolve_path(p: str) -> str:

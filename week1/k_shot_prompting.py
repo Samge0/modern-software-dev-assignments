@@ -1,13 +1,28 @@
 import os
 from dotenv import load_dotenv
-from ollama import chat
+# Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
+from backend_shim import chat
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
-# TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+# K-shot examples demonstrating the exact task format: input word -> reversed word.
+# Teaching by demonstration keeps the model on-format (no explanations, exact casing).
+YOUR_SYSTEM_PROMPT = (
+    "You reverse words letter-by-letter. Follow the exact format of the examples.\n\n"
+    "Example 1:\n"
+    "Input: hello\n"
+    "Output: olleh\n\n"
+    "Example 2:\n"
+    "Input: ChatGPT\n"
+    "Output: TPgtahC\n\n"
+    "Example 3:\n"
+    "Input: Stanford\n"
+    "Output: dronatS\n\n"
+    "Rules: Output ONLY the reversed word. Preserve original letter casing and order-reversal. "
+    "No quotes, no punctuation, no explanation."
+)
 
 USER_PROMPT = """
 Reverse the order of letters in the following word. Only output the reversed word, no other text:

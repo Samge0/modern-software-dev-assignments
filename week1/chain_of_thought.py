@@ -1,14 +1,24 @@
 import os
 import re
 from dotenv import load_dotenv
-from ollama import chat
+# Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
+from backend_shim import chat
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
-# TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+# Chain-of-thought: instruct the model to reason step by step using modular arithmetic
+# before committing to a final answer. The harness extracts the LAST "Answer:" line.
+YOUR_SYSTEM_PROMPT = (
+    "You are a careful math solver. Think step by step:\n"
+    "1) Reduce the base modulo 100 first (3^1 = 3, 3^2 = 9, ...).\n"
+    "2) Find the cycle length of 3^k mod 100.\n"
+    "3) Reduce the huge exponent using the cycle length.\n"
+    "4) Compute the residue.\n"
+    "5) Finish with a line exactly of the form: Answer: <number>\n"
+    "The last line must contain only 'Answer: ' followed by the number. No units, no period."
+)
 
 
 USER_PROMPT = """
