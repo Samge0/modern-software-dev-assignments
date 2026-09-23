@@ -37,14 +37,27 @@
         <div id="notes-pager" class="pager"></div>
       </section>
 
-      <!-- ============ ACTIONS section ============ -->
+      <!-- ============ ACTIONS section (TASK 4) ============ -->
       <section id="actions-section">
         <h2>Action Items</h2>
         <form id="action-form">
           <input id="action-desc" placeholder="Description" required />
           <button type="submit">Add</button>
         </form>
+
+        <div class="row">
+          <label for="actions-filter">Show:</label>
+          <select id="actions-filter">
+            <option value="" selected>All</option>
+            <option value="false">Open only</option>
+            <option value="true">Completed only</option>
+          </select>
+        </div>
+
+        <p id="actions-count"></p>
+        <div id="actions-bulk" class="row"><button>Bulk complete selected</button></div>
         <ul id="actions"></ul>
+        <div id="actions-pager" class="pager"></div>
       </section>
     </main>
 

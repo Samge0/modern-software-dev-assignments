@@ -39,3 +39,19 @@ class ActionItemRead(BaseModel):
     completed: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ActionItemPage(BaseModel):
+    items: list[ActionItemRead]
+    total: int
+    page: int
+    page_size: int
+
+
+class ActionItemBulkCompleteRequest(BaseModel):
+    ids: list[int] = Field(min_length=1)
+
+
+class ActionItemBulkCompleteResponse(BaseModel):
+    updated_count: int
+    ids: list[int]
