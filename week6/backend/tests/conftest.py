@@ -3,12 +3,13 @@ import tempfile
 from collections.abc import Generator
 
 import pytest
-from backend.app.db import get_db
-from backend.app.main import app
-from backend.app.models import Base
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+from backend.app.db import get_db
+from backend.app.main import app
+from backend.app.models import Base
 
 
 @pytest.fixture()
@@ -36,6 +37,12 @@ def client() -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
 
-    os.unlink(db_path)
-
-
+    # Dispose the engine BEFORE unlinking: on Windows an open SQLite connection
+    # keeps the file locked (WinError 32) and os.unlink fails at teardown.
+    engine.dispose()
+    try:
+        os.unlink(db_path)
+    except PermissionError:
+        # Last-resort tolerance: connection pool may hold a handle a moment
+        # longer; a leaked temp file is preferable to a failed test run.
+        pass

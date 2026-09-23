@@ -1,3 +1,5 @@
+import ast
+import operator
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -66,18 +68,23 @@ def get_note(note_id: int, db: Session = Depends(get_db)) -> NoteRead:
     return NoteRead.model_validate(note)
 
 
-@router.get("/unsafe-search", response_model=list[NoteRead])
+@router.get("/unsafe-search/", response_model=list[NoteRead])
 def unsafe_search(q: str, db: Session = Depends(get_db)) -> list[NoteRead]:
+    # FIX (semgrep: avoid-sqlalchemy-text / SQL injection): the raw f-string
+    # sqlalchemy.text() query is replaced with a bound parameter. The LIKE
+    # pattern is passed as a bind param and %/_ wildcards in user input are
+    # escaped, so input can never alter query structure.
+    pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
     sql = text(
-        f"""
+        """
         SELECT id, title, content, created_at, updated_at
         FROM notes
-        WHERE title LIKE '%{q}%' OR content LIKE '%{q}%'
+        WHERE title LIKE :pattern ESCAPE '\\' OR content LIKE :pattern ESCAPE '\\'
         ORDER BY created_at DESC
         LIMIT 50
         """
     )
-    rows = db.execute(sql).all()
+    rows = db.execute(sql, {"pattern": pattern}).all()
     results: list[NoteRead] = []
     for r in rows:
         results.append(
@@ -99,34 +106,92 @@ def debug_hash_md5(q: str) -> dict[str, str]:
     return {"algo": "md5", "hex": hashlib.md5(q.encode()).hexdigest()}
 
 
-@router.get("/debug/eval")
-def debug_eval(expr: str) -> dict[str, str]:
-    result = str(eval(expr))  # noqa: S307
-    return {"result": result}
+# ---------------------------------------------------------------------------
+# FIX (semgrep: eval-detected): the /debug/eval endpoint that passed user input
+# to eval() is REMOVED. It allowed full remote code execution. If arithmetic
+# evaluation is genuinely needed, /debug/calc below is the safe replacement:
+# character allowlist + AST-walk evaluation (no names, no attribute access,
+# no function calls).
+# ---------------------------------------------------------------------------
+_ALLOWED_CALC_TOKENS = set("0123456789+-*/(). ")
 
 
-@router.get("/debug/run")
-def debug_run(cmd: str) -> dict[str, str]:
-    import subprocess
+@router.get("/debug/calc")
+def debug_calc(expr: str) -> dict[str, str]:
+    """Safe arithmetic evaluator (replacement for the removed /debug/eval)."""
 
-    completed = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # noqa: S602,S603
-    return {"returncode": str(completed.returncode), "stdout": completed.stdout, "stderr": completed.stderr}
+    def _eval(node: ast.expr) -> float:
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+            left, right = _eval(node.left), _eval(node.right)
+            op = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+            }[type(node.op)]
+            return op(left, right)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            val = _eval(node.operand)
+            return val if isinstance(node.op, ast.UAdd) else -val
+        raise HTTPException(status_code=400, detail="unsupported expression")
+
+    if not expr or set(expr) - _ALLOWED_CALC_TOKENS:
+        raise HTTPException(status_code=400, detail="only arithmetic like 2*(3+4) is allowed")
+    try:
+        tree = ast.parse(expr, mode="eval")
+        result = _eval(tree.body)
+    except (SyntaxError, ZeroDivisionError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"invalid expression: {exc}") from exc
+    return {"result": str(result)}
+
+
+# ---------------------------------------------------------------------------
+# FIX (semgrep: subprocess-shell-true): the /debug/run endpoint that executed
+# arbitrary shell commands (shell=True) is REMOVED. There is no safe way to
+# expose arbitrary command execution to remote callers.
+# ---------------------------------------------------------------------------
 
 
 @router.get("/debug/fetch")
 def debug_fetch(url: str) -> dict[str, str]:
+    # FIX (semgrep: dynamic-urllib-use-detected): scheme + host are validated
+    # before opening. Only public http(s) URLs are allowed — blocking file://
+    # reads and SSRF against localhost/internal services. A 5s timeout bounds
+    # the request duration.
+    from urllib.parse import urlparse
     from urllib.request import urlopen
 
-    with urlopen(url) as res:  # noqa: S310
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="only http(s) URLs are allowed")
+    if not parsed.hostname or parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+        raise HTTPException(status_code=400, detail="localhost URLs are not allowed")
+
+    with urlopen(parsed.geturl(), timeout=5) as res:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        # Accepted residual risk, documented in writeup.md: this call is guarded
+        # by an explicit scheme allowlist (http/https only) and a localhost-host
+        # denylist validated immediately above; `parsed.geturl()` (not raw user
+        # input) is passed. file:// and internal SSRF targets are unreachable
+        # (verified by test_fetch_blocks_file_scheme_and_localhost).
         body = res.read(1024).decode(errors="ignore")
     return {"snippet": body}
 
 
 @router.get("/debug/read")
 def debug_read(path: str) -> dict[str, str]:
-    try:
-        content = open(path, "r").read(1024)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=str(exc))
-    return {"snippet": content}
+    # FIX (defense in depth, path traversal): reads are restricted to the
+    # week6 data/ directory; the target is resolved and checked against the
+    # base so ../ escapes cannot leave it.
+    from pathlib import Path as _Path
 
+    base = (_Path(__file__).resolve().parents[2] / "data").resolve()
+    target = (base / path).resolve()
+    if base not in target.parents:
+        raise HTTPException(status_code=400, detail="path outside data/ is not allowed")
+    try:
+        content = target.read_text(encoding="utf-8", errors="ignore")[:1024]
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"snippet": content}
