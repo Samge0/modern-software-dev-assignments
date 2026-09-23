@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from collections.abc import Generator
 
@@ -13,8 +14,8 @@ from sqlalchemy.orm import sessionmaker
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
-    db_fd, db_path = tempfile.mkstemp()
-    os.close(db_fd)
+    tmp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(tmp_dir, "test.db")
 
     engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -36,4 +37,5 @@ def client() -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
 
-    os.unlink(db_path)
+    engine.dispose()
+    shutil.rmtree(tmp_dir, True)
