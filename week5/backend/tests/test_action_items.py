@@ -12,5 +12,8 @@ def test_create_and_complete_action_item(client):
 
     r = client.get("/action-items/")
     assert r.status_code == 200
-    items = r.json()
-    assert len(items) == 1
+    # TASK 8: collections return a paginated envelope now
+    data = r.json()
+    assert isinstance(data, dict)
+    assert data["total"] == 1
+    assert len(data["items"]) == 1

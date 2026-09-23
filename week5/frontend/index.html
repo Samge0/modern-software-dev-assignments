@@ -10,23 +10,54 @@
     <main>
       <h1>Modern Software Dev Starter</h1>
 
-      <section>
+      <!-- ============ NOTES section (TASK 2/3) ============ -->
+      <section id="notes-section">
         <h2>Notes</h2>
+
+        <form id="search-form">
+          <input id="search-input" placeholder="Search notes…" />
+          <select id="sort-select">
+            <option value="created_desc" selected>Newest first</option>
+            <option value="created_asc">Oldest first</option>
+            <option value="title_asc">Title A→Z</option>
+            <option value="title_desc">Title Z→A</option>
+          </select>
+          <button type="submit">Search</button>
+        </form>
+
+        <p id="notes-count"></p>
+
         <form id="note-form">
           <input id="note-title" placeholder="Title" required />
           <input id="note-content" placeholder="Content" required />
           <button type="submit">Add</button>
         </form>
+
         <ul id="notes"></ul>
+        <div id="notes-pager" class="pager"></div>
       </section>
 
-      <section>
+      <!-- ============ ACTIONS section (TASK 4) ============ -->
+      <section id="actions-section">
         <h2>Action Items</h2>
         <form id="action-form">
           <input id="action-desc" placeholder="Description" required />
           <button type="submit">Add</button>
         </form>
+
+        <div class="row">
+          <label for="actions-filter">Show:</label>
+          <select id="actions-filter">
+            <option value="" selected>All</option>
+            <option value="false">Open only</option>
+            <option value="true">Completed only</option>
+          </select>
+        </div>
+
+        <p id="actions-count"></p>
+        <div id="actions-bulk" class="row"><button>Bulk complete selected</button></div>
         <ul id="actions"></ul>
+        <div id="actions-pager" class="pager"></div>
       </section>
     </main>
 
