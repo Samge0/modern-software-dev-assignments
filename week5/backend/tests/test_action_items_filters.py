@@ -54,8 +54,10 @@ def test_bulk_complete_unknown_id_rolls_back_everything(client: TestClient):
 
     r = client.post("/action-items/bulk-complete", json={"ids": [doomed["id"], 999999]})
     assert r.status_code == 404
-    detail = r.json()["detail"]
-    assert detail["missing_ids"] == [999999]
+    # TASK 7 envelope: {ok:false, error:{code, message, missing_ids}}
+    body = r.json()
+    assert body["ok"] is False
+    assert body["error"]["missing_ids"] == [999999]
 
     # Rollback verified: neither item was mutated
     after = client.get("/action-items/", params={"completed": "false"}).json()
