@@ -42,3 +42,23 @@ class ActionItemRead(BaseModel):
 class ActionItemPatch(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=2000)
     completed: bool | None = None
+
+
+# ---------------------------------------------------------------------------
+# Task 3: tags
+# ---------------------------------------------------------------------------
+
+class TagCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\- ]+$")
+
+
+class TagRead(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class TagAddRequest(BaseModel):
+    names: list[str] = Field(min_length=1, max_length=20)
