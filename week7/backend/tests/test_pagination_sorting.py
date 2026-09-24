@@ -55,32 +55,42 @@ def test_negative_skip_rejected(client: TestClient):
 
 
 def test_sort_desc_is_default_and_reverses(client: TestClient, seeded):
-    default = _titles(client.get("/notes/"))
-    asc = _titles(client.get("/notes/", params={"sort": "created_at"}))
-    assert default == list(reversed(asc)) or default == asc[::-1] or True  # same-second timestamps
-    # deterministic check via id sorting instead
+    # deterministic check via id sorting (created_at can tie within one second)
     by_id_desc = _titles(client.get("/notes/", params={"sort": "-id"}))
     by_id_asc = _titles(client.get("/notes/", params={"sort": "id"}))
     assert by_id_desc == list(reversed(by_id_asc))
+    assert sorted(by_id_asc) == sorted(TITLES, key=str.lower) or sorted(by_id_asc) == sorted(TITLES)
 
 
 def test_sort_unknown_field_falls_back_safely(client: TestClient, seeded):
+    # route has no sort whitelist: hasattr() check falls back to created_at desc
     r = client.get("/notes/", params={"sort": "-nonexistent_field"})
-    assert r.status_code == 200  # falls back to created_at desc, no 500
+    assert r.status_code == 200
     assert len(r.json()) == len(TITLES)
+    # fallback order == default order
+    default_titles = _titles(client.get("/notes/"))
+    assert _titles(r) == default_titles
 
 
 def test_sort_by_title(client: TestClient, seeded):
     r = client.get("/notes/", params={"sort": "title"})
     titles = _titles(r)
-    assert titles == sorted(titles, key=str.lower) or titles == sorted(titles)
+    assert titles == sorted(titles, key=str.lower), titles
 
 
 def test_pagination_with_query_filter(client: TestClient, seeded):
-    # content contains 'body of ...' for every note; filter + limit compose
+    # content contains 'body of <title>' for every note; filter + limit compose
     r = client.get("/notes/", params={"q": "body", "limit": 2, "sort": "id"})
     assert r.status_code == 200
     assert len(r.json()) == 2
+
+    # filter actually filters: 'alpha' content match returns exactly the alpha note
+    only_alpha = client.get("/notes/", params={"q": "of alpha"})
+    assert [n["title"] for n in only_alpha.json()] == ["alpha"]
+
+    # filter is case-insensitive on content
+    upper = client.get("/notes/", params={"q": "OF ALPHA"})
+    assert [n["title"] for n in upper.json()] == ["alpha"]
 
     r_all = client.get("/notes/", params={"q": "body"})
     assert len(r_all.json()) == len(TITLES)
