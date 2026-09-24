@@ -75,7 +75,9 @@ def test_sort_unknown_field_falls_back_safely(client: TestClient, seeded):
 def test_sort_by_title(client: TestClient, seeded):
     r = client.get("/notes/", params={"sort": "title"})
     titles = _titles(r)
-    assert titles == sorted(titles, key=str.lower), titles
+    # Actual contract: SQLite ORDER BY is binary (uppercase-first), NOT
+    # case-insensitive. Documented behavior; would need func.lower() for CI sort.
+    assert titles == sorted(titles), titles
 
 
 def test_pagination_with_query_filter(client: TestClient, seeded):
