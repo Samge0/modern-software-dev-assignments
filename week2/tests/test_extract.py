@@ -1,14 +1,14 @@
 import os
-import json
+
 import pytest
 
 from ..app.services.extract import extract_action_items
-from ..app.services.extract_llm import extract_action_items_llm, _parse_items
-
+from ..app.services.extract_llm import _parse_items, extract_action_items_llm
 
 # ---------------------------------------------------------------------------
 # Heuristic extractor (existing behaviour, kept as regression baseline)
 # ---------------------------------------------------------------------------
+
 
 def test_extract_bullets_and_checkboxes():
     text = """
@@ -41,6 +41,7 @@ def test_extract_empty_input():
 # LLM extractor (TODO 2)
 # ---------------------------------------------------------------------------
 
+
 def test_llm_parse_items_plain_array():
     assert _parse_items('["Fix bug", "Update docs"]') == ["Fix bug", "Update docs"]
 
@@ -71,7 +72,9 @@ class TestLLMExtractorLive:
         assert any("review" in i.lower() for i in items)
 
     def test_keyword_prefixed_lines(self):
-        items = extract_action_items_llm("TODO: ping legal about the DPA\nNext: schedule design review")
+        items = extract_action_items_llm(
+            "TODO: ping legal about the DPA\nNext: schedule design review"
+        )
         assert len(items) >= 2
 
     def test_empty_input_short_circuits(self):

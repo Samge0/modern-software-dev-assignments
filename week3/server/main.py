@@ -24,6 +24,7 @@ graceful errors for empty results / network failures (returned as tool text, nev
 crashing the server). HTTP transport validates the Authorization bearer token from
 MCP_HTTP_TOKEN and never forwards it upstream.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -87,10 +88,19 @@ def _get_with_backoff(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
             if resp.status_code == 429 or resp.status_code >= 500:
                 last_error = f"HTTP {resp.status_code}"
                 retry_after = resp.headers.get("retry-after")
-                logger.warning("attempt %d/%d %s: %s (rate-limit/server error, will back off)",
-                               attempt, MAX_RETRIES, url, last_error)
+                logger.warning(
+                    "attempt %d/%d %s: %s (rate-limit/server error, will back off)",
+                    attempt,
+                    MAX_RETRIES,
+                    url,
+                    last_error,
+                )
                 # honor Retry-After when present, else exponential backoff
-                delay = float(retry_after) if retry_after and retry_after.isdigit() else 0.5 * (2 ** (attempt - 1))
+                delay = (
+                    float(retry_after)
+                    if retry_after and retry_after.isdigit()
+                    else 0.5 * (2 ** (attempt - 1))
+                )
                 time.sleep(min(delay, 8.0))
                 continue
             last_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
@@ -101,28 +111,48 @@ def _get_with_backoff(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 WMO_CODES: Dict[int, str] = {
-    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
-    45: "Fog", 48: "Depositing rime fog",
-    51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
-    56: "Light freezing drizzle", 57: "Dense freezing drizzle",
-    61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
-    66: "Light freezing rain", 67: "Heavy freezing rain",
-    71: "Slight snow fall", 73: "Moderate snow fall", 75: "Heavy snow fall",
+    0: "Clear sky",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Fog",
+    48: "Depositing rime fog",
+    51: "Light drizzle",
+    53: "Moderate drizzle",
+    55: "Dense drizzle",
+    56: "Light freezing drizzle",
+    57: "Dense freezing drizzle",
+    61: "Slight rain",
+    63: "Moderate rain",
+    65: "Heavy rain",
+    66: "Light freezing rain",
+    67: "Heavy freezing rain",
+    71: "Slight snow fall",
+    73: "Moderate snow fall",
+    75: "Heavy snow fall",
     77: "Snow grains",
-    80: "Slight rain showers", 81: "Moderate rain showers", 82: "Violent rain showers",
-    85: "Slight snow showers", 86: "Heavy snow showers",
-    95: "Thunderstorm", 96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
+    80: "Slight rain showers",
+    81: "Moderate rain showers",
+    82: "Violent rain showers",
+    85: "Slight snow showers",
+    86: "Heavy snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm with slight hail",
+    99: "Thunderstorm with heavy hail",
 }
 
 
 # ---------------------------------------------------------------------------
 # MCP server + tools
 # ---------------------------------------------------------------------------
-mcp = FastMCP("weather", instructions=(
-    "Weather tools backed by Open-Meteo. Resolve place names with `geocode` first when "
-    "you need coordinates; `current_weather` and `forecast` accept free-form place names "
-    "and resolve them automatically."
-))
+mcp = FastMCP(
+    "weather",
+    instructions=(
+        "Weather tools backed by Open-Meteo. Resolve place names with `geocode` first when "
+        "you need coordinates; `current_weather` and `forecast` accept free-form place names "
+        "and resolve them automatically."
+    ),
+)
 
 
 @mcp.tool()
@@ -138,9 +168,15 @@ def geocode(place: str, count: int = 3) -> str:
     """
     count = max(1, min(int(count), 10))
     try:
-        data = _get_with_backoff(GEOCODING_URL, {
-            "name": place, "count": count, "language": "en", "format": "json",
-        })
+        data = _get_with_backoff(
+            GEOCODING_URL,
+            {
+                "name": place,
+                "count": count,
+                "language": "en",
+                "format": "json",
+            },
+        )
     except UpstreamError as exc:
         return f"Error: {exc}"
     results: List[Dict[str, Any]] = data.get("results") or []
@@ -163,7 +199,9 @@ def geocode(place: str, count: int = 3) -> str:
 
 def _resolve_first(place: str) -> Dict[str, Any]:
     """Resolve a place name to the top geocoding hit; raise UpstreamError on none."""
-    data = _get_with_backoff(GEOCODING_URL, {"name": place, "count": 1, "language": "en", "format": "json"})
+    data = _get_with_backoff(
+        GEOCODING_URL, {"name": place, "count": 1, "language": "en", "format": "json"}
+    )
     results = data.get("results") or []
     if not results:
         raise UpstreamError(f"no geocoding results for '{place}'")
@@ -182,12 +220,15 @@ def current_weather(place: str) -> str:
     """
     try:
         loc = _resolve_first(place)
-        data = _get_with_backoff(FORECAST_URL, {
-            "latitude": loc["latitude"],
-            "longitude": loc["longitude"],
-            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
-            "timezone": "auto",
-        })
+        data = _get_with_backoff(
+            FORECAST_URL,
+            {
+                "latitude": loc["latitude"],
+                "longitude": loc["longitude"],
+                "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+                "timezone": "auto",
+            },
+        )
     except UpstreamError as exc:
         return f"Error: {exc}"
     cur = data.get("current") or {}
@@ -217,13 +258,16 @@ def forecast(place: str, days: int = 3) -> str:
     days = max(1, min(int(days), 7))
     try:
         loc = _resolve_first(place)
-        data = _get_with_backoff(FORECAST_URL, {
-            "latitude": loc["latitude"],
-            "longitude": loc["longitude"],
-            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-            "forecast_days": days,
-            "timezone": "auto",
-        })
+        data = _get_with_backoff(
+            FORECAST_URL,
+            {
+                "latitude": loc["latitude"],
+                "longitude": loc["longitude"],
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "forecast_days": days,
+                "timezone": "auto",
+            },
+        )
     except UpstreamError as exc:
         return f"Error: {exc}"
     daily = data.get("daily") or {}
@@ -237,9 +281,7 @@ def forecast(place: str, days: int = 3) -> str:
         tmax = daily.get("temperature_2m_max", [None] * len(dates))[i]
         tmin = daily.get("temperature_2m_min", [None] * len(dates))[i]
         pp = daily.get("precipitation_probability_max", [None] * len(dates))[i]
-        lines.append(
-            f"- {date}: {desc}, {tmin}~{tmax}°C, precipitation chance {pp}%"
-        )
+        lines.append(f"- {date}: {desc}, {tmin}~{tmax}°C, precipitation chance {pp}%")
     return "\n".join(lines)
 
 
@@ -277,34 +319,46 @@ class _BearerAuthMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
+        headers = {
+            k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])
+        }
         auth = headers.get("authorization", "")
         expected = f"bearer {self.token}"
         if not secrets_compare(auth.lower(), expected):
-            await self._send_json(send, 401, {"error": "unauthorized", "detail": "missing or invalid bearer token"})
+            await self._send_json(
+                send, 401, {"error": "unauthorized", "detail": "missing or invalid bearer token"}
+            )
             return
         await self.app(scope, receive, send)
 
     @staticmethod
     async def _send_json(send, status: int, body: Dict[str, Any]) -> None:
         payload = json.dumps(body).encode()
-        await send({
-            "type": "http.response.start",
-            "status": status,
-            "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(payload)).encode())],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(payload)).encode()),
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": payload})
 
 
 def secrets_compare(a: str, b: str) -> bool:
     """Constant-time-ish comparison to avoid trivially timing-leaking the token."""
     import secrets as _secrets
+
     return _secrets.compare_digest(a.encode(), b.encode())
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Weather MCP server (Open-Meteo)")
-    parser.add_argument("--http", action="store_true", help="run HTTP transport with bearer auth instead of STDIO")
+    parser.add_argument(
+        "--http", action="store_true", help="run HTTP transport with bearer auth instead of STDIO"
+    )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8137)
     args = parser.parse_args()
@@ -315,10 +369,11 @@ def main() -> None:
             print("MCP_HTTP_TOKEN must be set for --http mode", file=sys.stderr)
             sys.exit(2)
         logger.info("starting HTTP MCP server on %s:%d (bearer auth enabled)", args.host, args.port)
-        from mcp.server.sse import SseServerTransport  # streamable HTTP via SSE transport
+
         starlette_app = mcp.sse_app()  # FastMCP-built Starlette/SSE app
         app = _BearerAuthMiddleware(starlette_app, token)
         import uvicorn
+
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     else:
         logger.info("starting STDIO MCP server")

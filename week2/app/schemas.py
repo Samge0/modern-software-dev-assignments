@@ -3,6 +3,7 @@
 Replaces ad-hoc `Dict[str, Any]` payloads in the routers with typed models so
 the contract is declared once, validated by FastAPI, and surfaced in /docs.
 """
+
 from __future__ import annotations
 
 from typing import List, Optional

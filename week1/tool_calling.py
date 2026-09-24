@@ -1,11 +1,11 @@
 import ast
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple, Callable
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from dotenv import load_dotenv
 # Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
 from backend_shim import chat
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -28,7 +28,7 @@ def _annotation_to_str(annotation: Optional[ast.AST]) -> str:
 
 
 def _list_function_return_types(file_path: str) -> List[Tuple[str, str]]:
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         source = f.read()
     tree = ast.parse(source)
     results: List[Tuple[str, str]] = []
@@ -61,6 +61,7 @@ def add(a: int, b: int) -> int:
 def greet(name: str) -> str:
     return f"Hello, {name}!"
 
+
 # Tool registry for dynamic execution by name
 TOOL_REGISTRY: Dict[str, Callable[..., str]] = {
     "output_every_func_return_type": output_every_func_return_type,
@@ -83,7 +84,7 @@ YOUR_SYSTEM_PROMPT = (
     "Defaults to the current file when omitted.\n\n"
     "When asked to act, respond with ONLY a single JSON object, no prose, no code fences:\n"
     '{"tool": "output_every_func_return_type", "args": {"file_path": "<path>"}}\n'
-    "Choose file_path as the empty string \"\" so the harness analyzes its own file. "
+    'Choose file_path as the empty string "" so the harness analyzes its own file. '
     "Output raw JSON only."
 )
 
@@ -140,7 +141,9 @@ def execute_tool_call(call: Dict[str, Any]) -> str:
 
     # Best-effort path resolution if a file_path arg is present
     if "file_path" in args and isinstance(args["file_path"], str):
-        args["file_path"] = resolve_path(args["file_path"]) if str(args["file_path"]) != "" else __file__
+        args["file_path"] = (
+            resolve_path(args["file_path"]) if str(args["file_path"]) != "" else __file__
+        )
     elif "file_path" not in args:
         # Provide default for tools expecting file_path
         args["file_path"] = __file__

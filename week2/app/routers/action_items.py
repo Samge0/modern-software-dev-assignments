@@ -11,9 +11,6 @@ from ..schemas import (
     ExtractResponse,
     MarkDoneRequest,
     MarkDoneResponse,
-    NoteCreate,
-    NoteList,
-    NoteOut,
 )
 from ..services.extract import extract_action_items
 from ..services.extract_llm import extract_action_items_llm

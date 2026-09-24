@@ -2,6 +2,7 @@
 
 Verifies the JSON-RPC handshake, tool listing, and a real Open-Meteo call.
 """
+
 import asyncio
 import sys
 from pathlib import Path

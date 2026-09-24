@@ -1,9 +1,9 @@
-import os
 import re
 from typing import Callable, List, Tuple
-from dotenv import load_dotenv
+
 # Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
 from backend_shim import chat
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -36,10 +36,10 @@ YOUR_REFLEXION_PROMPT = (
 # Ground-truth test suite used to evaluate generated code
 SPECIALS = set("!@#$%^&*()-_")
 TEST_CASES: List[Tuple[str, bool]] = [
-    ("Password1!", True),       # valid
-    ("password1!", False),      # missing uppercase
-    ("Password!", False),       # missing digit
-    ("Password1", False),       # missing special
+    ("Password1!", True),  # valid
+    ("password1!", False),  # missing uppercase
+    ("Password!", False),  # missing digit
+    ("Password1", False),  # missing special
 ]
 
 
@@ -112,7 +112,9 @@ def your_build_reflexion_context(prev_code: str, failures: List[str]) -> str:
     Assembles: previous implementation + explicit failing-test feedback, so the
     model can ground its reflection in concrete evidence rather than guessing.
     """
-    failure_block = "\n".join(f"- {f}" for f in failures) if failures else "- (no specific feedback)"
+    failure_block = (
+        "\n".join(f"- {f}" for f in failures) if failures else "- (no specific feedback)"
+    )
     return (
         "Previous implementation:\n"
         f"```python\n{prev_code}\n```\n\n"

@@ -2,6 +2,7 @@
 
 Uses FastAPI TestClient with a temp DB via env override.
 """
+
 from __future__ import annotations
 
 import os
@@ -104,7 +105,10 @@ def test_extract_llm_endpoint_live():
         pytest.skip("no local LLM endpoint configured")
     res = client.post(
         "/action-items/extract-llm",
-        json={"text": "TODO: email the team\nWe should also update the roadmap.", "save_note": False},
+        json={
+            "text": "TODO: email the team\nWe should also update the roadmap.",
+            "save_note": False,
+        },
     )
     assert res.status_code == 200
     data = res.json()

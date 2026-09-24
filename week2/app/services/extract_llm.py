@@ -5,12 +5,13 @@ returns a JSON array of action item strings. Mirrors the course's Ollama-based
 `extract_action_items_llm` task: the assignment suggests Ollama structured
 outputs; here we use the equivalent `response_format` JSON mode + strict prompt.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import re
-from typing import Any, List
+from typing import List
 
 from dotenv import load_dotenv
 from openai import OpenAI

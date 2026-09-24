@@ -10,6 +10,7 @@ week1 scripts (response.message.content) while routing to the vLLM endpoint.
 Set WEEK1_BACKEND=ollama to use real Ollama instead (default: vllm).
 Set WEEK1_MODEL_MAP_JSON to override the model-name mapping.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,9 @@ _DEFAULT_MAP = {
     "llama3.1:8b": os.environ.get("VLLM_MODEL_LLAMA", "qwen38"),
 }
 try:
-    MODEL_MAP: Dict[str, str] = json.loads(os.environ.get("WEEK1_MODEL_MAP_JSON", "") or "{}") or dict(_DEFAULT_MAP)
+    MODEL_MAP: Dict[str, str] = json.loads(
+        os.environ.get("WEEK1_MODEL_MAP_JSON", "") or "{}"
+    ) or dict(_DEFAULT_MAP)
 except json.JSONDecodeError:
     MODEL_MAP = dict(_DEFAULT_MAP)
 
@@ -49,7 +52,9 @@ def _norm_options(options: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return opts
 
 
-def _chat_vllm(model: str, messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None) -> _ChatResponse:
+def _chat_vllm(
+    model: str, messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None
+) -> _ChatResponse:
     from openai import OpenAI
 
     base_url = os.environ.get("OPENAI_BASE_URL", "http://127.0.0.1:16869/v1")
@@ -72,14 +77,18 @@ def _chat_vllm(model: str, messages: List[Dict[str, str]], options: Optional[Dic
     return _ChatResponse(content)
 
 
-def _chat_ollama(model: str, messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None) -> _ChatResponse:
+def _chat_ollama(
+    model: str, messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None
+) -> _ChatResponse:
     from ollama import chat as _ollama_chat
 
     resp = _ollama_chat(model=model, messages=messages, options=options or {})
     return _ChatResponse(resp.message.content)
 
 
-def chat(model: str, messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None) -> _ChatResponse:
+def chat(
+    model: str, messages: List[Dict[str, str]], options: Optional[Dict[str, Any]] = None
+) -> _ChatResponse:
     """Drop-in replacement for ollama.chat used across week1 scripts."""
     if BACKEND == "ollama":
         return _chat_ollama(model, messages, options)

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, HTTPException
 
 from .. import db
@@ -21,7 +19,11 @@ def create_note(payload: NoteCreate) -> dict:
 def list_notes() -> dict:
     """List all notes (TODO 4.2)."""
     rows = db.list_notes()
-    return {"notes": [{"id": r["id"], "content": r["content"], "created_at": r["created_at"]} for r in rows]}
+    return {
+        "notes": [
+            {"id": r["id"], "content": r["content"], "created_at": r["created_at"]} for r in rows
+        ]
+    }
 
 
 @router.get("/{note_id}", response_model=NoteOut)

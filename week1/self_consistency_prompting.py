@@ -1,9 +1,9 @@
-import os
 import re
 from collections import Counter
-from dotenv import load_dotenv
+
 # Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
 from backend_shim import chat
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -93,5 +93,3 @@ def test_your_prompt(system_prompt: str) -> bool:
 
 if __name__ == "__main__":
     test_your_prompt(YOUR_SYSTEM_PROMPT)
-
-

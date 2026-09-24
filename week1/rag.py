@@ -1,9 +1,10 @@
 import os
 import re
-from typing import List, Callable
-from dotenv import load_dotenv
+from typing import Callable, List
+
 # Use OpenAI-compatible backend shim (routes to local vLLM; set WEEK1_BACKEND=ollama for real Ollama)
 from backend_shim import chat
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -19,7 +20,7 @@ def load_corpus_from_files(paths: List[str]) -> List[str]:
     for p in paths:
         if os.path.exists(p):
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     corpus.append(f.read())
             except Exception as exc:
                 corpus.append(f"[load_error] {p}: {exc}")
@@ -72,7 +73,7 @@ def YOUR_CONTEXT_PROVIDER(corpus: List[str]) -> List[str]:
     query_terms = {"user", "users", "api", "key", "endpoint", "authentication", "fetch"}
     scored: List[tuple] = []
     for doc in corpus:
-        if not doc or doc.startswith("[") :  # skip error/missing placeholders
+        if not doc or doc.startswith("["):  # skip error/missing placeholders
             continue
         tokens = set(re.findall(r"[a-zA-Z]+", doc.lower()))
         score = len(tokens & query_terms)
@@ -113,7 +114,9 @@ def extract_code_block(text: str) -> str:
     return text.strip()
 
 
-def test_your_prompt(system_prompt: str, context_provider: Callable[[List[str]], List[str]]) -> bool:
+def test_your_prompt(
+    system_prompt: str, context_provider: Callable[[List[str]], List[str]]
+) -> bool:
     """Run up to NUM_RUNS_TIMES and return True if any output matches EXPECTED_OUTPUT."""
     context_docs = context_provider(CORPUS)
     user_prompt = make_user_prompt(QUESTION, context_docs)
